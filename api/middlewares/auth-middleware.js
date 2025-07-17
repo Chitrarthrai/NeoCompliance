@@ -5,48 +5,46 @@ const {TokenExpiredError} = require('jsonwebtoken');
 
 const auth = async (req,res,next) =>
 {
-    const {accessToken:accessTokenFromCookie,refreshToken:refreshTokenFromCookie}  = req.cookies;
+    let accessToken = null;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        accessToken = req.headers.authorization.split(' ')[1];
+    }
+    const refreshToken = req.cookies.refreshToken;
+    if (!accessToken) return next(ErrorHandler.unAuthorized());
     try{
-        if(!accessTokenFromCookie)
-            return next(ErrorHandler.unAuthorized())
-        const userData = await tokenService.verifyAccessToken(accessTokenFromCookie);
+        const userData = await tokenService.verifyAccessToken(accessToken);
         if(!userData)
             throw new Error(ErrorHandler.unAuthorized());
         req.user= userData;
     }
     catch(e)
     {
-        console.log('Token Error');
         if(e instanceof TokenExpiredError)
         {
-            console.log('Trying To Generate New Token');
-            if(!refreshTokenFromCookie) return next(ErrorHandler.unAuthorized());
-                const userData = await tokenService.verifyRefreshToken(refreshTokenFromCookie);
-                const {_id,email,username,type} = userData;
-                const token = await tokenService.findRefreshToken(_id,refreshTokenFromCookie);
+            if(!refreshToken) return next(ErrorHandler.unAuthorized());
+                const userData = await tokenService.verifyRefreshToken(refreshToken);
+                const {_id,email,username,role} = userData;
+                const token = await tokenService.findRefreshToken(_id,refreshToken);
                 if(!token) return next(ErrorHandler.unAuthorized());
                 const payload = {
                     _id,
                     email,
                     username,
-                    type
+                    role
                 }
-                const {accessToken,refreshToken} = tokenService.generateToken(payload);
-                await tokenService.updateRefreshToken(_id,refreshTokenFromCookie,refreshToken);
+                const {accessToken: newAccessToken,refreshToken: newRefreshToken} = tokenService.generateToken(payload);
+                await tokenService.updateRefreshToken(_id,refreshToken,newRefreshToken);
                 const user = await userService.findUser({email});
                 if(user.status!='active') return next(ErrorHandler.unAuthorized('There is a problem with your account, Please contact to the admin'));
                 req.user = user;
-                req.cookies.accessToken = accessToken;
-                req.cookies.refreshToken = refreshToken;
-                res.cookie('accessToken',accessToken,{
+                req.cookies.accessToken = newAccessToken;
+                req.cookies.refreshToken = newRefreshToken;
+                res.cookie('accessToken',newAccessToken,{
                     maxAge:1000*60*60*24*30,
-                    // httpOnly:true
                 })
-                res.cookie('refreshToken',refreshToken,{
+                res.cookie('refreshToken',newRefreshToken,{
                     maxAge:1000*60*60*24*30,
-                    // httpOnly:true
                 })
-                console.log('Token Generated Success');
                     return next();
             }
         else
@@ -55,18 +53,18 @@ const auth = async (req,res,next) =>
     next();
 }
 
-const authRole = (role) =>
+const authRole = (roles) =>
 {
     return (req,res,next)=>
     {
-        if(!role.includes(req.user.type))
+        if(!roles.includes(req.user.role))
             return next(ErrorHandler.notAllowed());
         next();
     }
 }
 
 const isAdmin = (req, res, next) => {
-    if (req.user && req.user.type === 'admin') {
+    if (req.user && req.user.role === 'admin') {
         next();
     } else {
         return res.status(403).json({ error: 'Access denied. Admins only.' });
