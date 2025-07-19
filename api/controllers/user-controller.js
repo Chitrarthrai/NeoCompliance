@@ -1,5 +1,6 @@
 const UserModel = require('../models/user-model');
 const QuestionModel = require('../models/question-model');
+const ScoreModel = require('../models/score-model');
 
 async function uploadQuestion(req, res, next) {
     try {
@@ -50,8 +51,71 @@ async function getQuestionsByRoleAndSection(req, res, next) {
     }
 }
 
+async function getUserSectionScores(req, res, next) {
+    try {
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ success: false, message: 'userId is required' });
+        }
+        const results = await ScoreModel.aggregate([
+            { $match: { userId: require('mongoose').Types.ObjectId(userId) } },
+            {
+                $lookup: {
+                    from: 'questions',
+                    localField: 'section_id',
+                    foreignField: '_id',
+                    as: 'sectionDetails'
+                }
+            },
+            { $unwind: '$sectionDetails' },
+            {
+                $project: {
+                    _id: 0,
+                    section_id: 1,
+                    totalCorrectAnswers: 1,
+                    totalWrongAnswers: 1,
+                    wrongQuestions: 1,
+                    section: '$sectionDetails.section',
+                    section_no: '$sectionDetails.section_no',
+                    role: '$sectionDetails.role'
+                }
+            }
+        ]);
+        res.json({ success: true, sectionScores: results });
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function submitSectionScore(req, res, next) {
+    try {
+        const { userId, section_id, answers } = req.body;
+        if (!userId || !section_id || !Array.isArray(answers)) {
+            return res.status(400).json({ success: false, message: 'userId, section_id, and answers are required' });
+        }
+
+        const totalCorrectAnswers = answers.filter(a => a.isCorrect).length;
+        const totalWrongAnswers = answers.length - totalCorrectAnswers;
+        const wrongQuestions = answers
+            .filter(a => !a.isCorrect)
+            .map(a => ({ questionId: a.questionId }));
+
+        await ScoreModel.findOneAndUpdate(
+            { userId, section_id },
+            { totalCorrectAnswers, totalWrongAnswers, wrongQuestions },
+            { upsert: true, new: true }
+        );
+
+        res.json({ success: true, message: 'Score saved successfully' });
+    } catch (err) {
+        next(err);
+    }
+}
+
 module.exports = {
     uploadQuestion,
     getSectionsByUserRole,
     getQuestionsByRoleAndSection,
+    getUserSectionScores,
+    submitSectionScore,
 };
