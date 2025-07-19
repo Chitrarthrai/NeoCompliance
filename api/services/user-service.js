@@ -1,30 +1,48 @@
 const UserModel = require("../models/user-model");
+const InspectorModel = require("../models/inspector-model");
 const bcrypt = require("bcrypt");
 
 class UserService {
-  findUser = async (filter) => await UserModel.findOne(filter);
+  findUser = async (filter) => {
+    let user = await UserModel.findOne(filter);
+    if (!user) {
+      user = await InspectorModel.findOne(filter);
+      if (user) user._doc.userType = "inspector";
+    } else {
+      user._doc.userType = "user";
+    }
+    return user;
+  };
 
-  verifyPassword = async (password, hashPassword) =>
-    await bcrypt.compare(password, hashPassword);
+  verifyPassword = async (password, hashPassword) => {
+    return await bcrypt.compare(password, hashPassword);
+  };
 
   createUser = async (req, res) => {
     try {
       const userData = req.body;
-  
+
       if (!userData.name || !userData.email || !userData.password) {
         return res.status(400).json({
           success: false,
           message: "Missing required fields: name, email, or password",
         });
       }
-  
-      const user = new UserModel(userData);
-  
+
+      let model = UserModel;
+
+      const isInspector =
+        userData.role === "inspector" || userData.userType === "inspector";
+      if (isInspector) {
+        model = InspectorModel;
+      }
+
+      const user = new model(userData);
       await user.save();
-  
+
       return res.status(201).json({
         success: true,
-        message: "User created successfully",
+        message: `${isInspector ? "Inspector" : "User"} created successfully`,
         data: user,
       });
     } catch (error) {
@@ -35,7 +53,7 @@ class UserService {
         error: error.message,
       });
     }
-  };  
+  };
 }
 
 module.exports = new UserService();

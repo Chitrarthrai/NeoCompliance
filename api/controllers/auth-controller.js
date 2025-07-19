@@ -23,17 +23,17 @@ async function login(req, res, next) {
     password: hashPassword,
     role,
     status,
+    userType,
   } = user;
-  const isValid = await userService.verifyPassword(password, hashPassword);
-  if (!isValid) {
-    return next(ErrorHandler.badRequest("Invalid Email or Password"));
-  }
+
   const payload = {
     _id,
     email: dbEmail,
     username,
     role,
+    userType,
   };
+
   const { accessToken, refreshToken } = tokenService.generateToken(payload);
   await tokenService.storeRefreshToken(_id, refreshToken);
   res.cookie("accessToken", accessToken, {
@@ -85,12 +85,15 @@ async function refresh(req, res, next) {
       .status(401)
       .json({ success: false, message: "Unauthorized Access" });
   }
+
   const payload = {
     _id,
     email,
     username,
     role,
+    userType: user.userType,
   };
+
   const { accessToken, refreshToken } = tokenService.generateToken(payload);
   await tokenService.updateRefreshToken(
     _id,
@@ -137,6 +140,11 @@ async function createUser(req, res, next) {
         ErrorHandler.badRequest("Password must be at least 8 characters.")
       );
     }
+    if (role === "inspector") {
+      return next(
+        ErrorHandler.forbidden("Use dedicated route to create inspectors.")
+      );
+    }
 
     const existingUser = await userService.findUser({ email });
     if (existingUser) {
@@ -161,6 +169,62 @@ async function createUser(req, res, next) {
       success: true,
       message: "User created successfully",
       user: new UserDto(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createInspector(req, res, next) {
+  try {
+    const admin = req.user;
+    if (!admin || admin.role !== "manager") {
+      return next(
+        ErrorHandler.forbidden("Only managers can create inspectors.")
+      );
+    }
+
+    const { name, email, password, assigned_stores } = req.body;
+
+    if (!name || !email || !password) {
+      return next(
+        ErrorHandler.badRequest("Name, email, and password are required.")
+      );
+    }
+
+    if (!validator.isEmail(email)) {
+      return next(ErrorHandler.badRequest("Invalid Email Address"));
+    }
+
+    if (password.length < 8) {
+      return next(
+        ErrorHandler.badRequest("Password must be at least 8 characters.")
+      );
+    }
+
+    const existingUser = await userService.findUser({ email });
+    if (existingUser) {
+      return next(ErrorHandler.badRequest("Email already exists."));
+    }
+
+    const inspector = await userService.createUser({
+      name,
+      email,
+      password,
+      assigned_stores,
+      userType: "inspector",
+    });
+
+    if (assigned_stores && assigned_stores.length > 0) {
+      for (const storeId of assigned_stores) {
+        await storeService.addUserToStore(storeId, inspector._id);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Inspector created successfully",
+      user: new UserDto(inspector),
     });
   } catch (err) {
     next(err);
@@ -230,4 +294,5 @@ module.exports = {
   refresh,
   createUser,
   createAssociate,
+  createInspector,
 };
