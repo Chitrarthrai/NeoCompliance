@@ -30,8 +30,14 @@ const userSchema = new Schema(
     role: {
       type: String,
       enum: ["manager", "associate"],
-      default: "associate"
+      default: "associate",
     },
+    assigned_stores: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Store",
+      },
+    ],
   },
   {
     timestamps: true,
@@ -40,16 +46,12 @@ const userSchema = new Schema(
 
 const SALT_FACTOR = 10;
 
-
 userSchema.pre("save", function (done) {
   const user = this;
   if (!user.isModified("password")) return done();
 
   bcrypt.genSalt(SALT_FACTOR, (err, salt) => {
-    if (err) {
-      console.log(err);
-      return done(err);
-    }
+    if (err) return done(err);
     bcrypt.hash(user.password, salt, (err, hashedPassword) => {
       if (err) return done(err);
       user.password = hashedPassword;
@@ -57,7 +59,6 @@ userSchema.pre("save", function (done) {
     });
   });
 });
-
 
 userSchema.pre("updateOne", function (done) {
   const user = this.getUpdate();
@@ -72,4 +73,4 @@ userSchema.pre("updateOne", function (done) {
   });
 });
 
-module.exports = new mongoose.model("User", userSchema, "users");
+module.exports = mongoose.model("User", userSchema, "users");
