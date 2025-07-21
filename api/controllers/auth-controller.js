@@ -177,14 +177,7 @@ async function createUser(req, res, next) {
 
 async function createInspector(req, res, next) {
   try {
-    const admin = req.user;
-    if (!admin || admin.role !== "manager") {
-      return next(
-        ErrorHandler.forbidden("Only managers can create inspectors.")
-      );
-    }
-
-    const { name, email, password, assigned_stores } = req.body;
+    const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
       return next(
@@ -211,15 +204,8 @@ async function createInspector(req, res, next) {
       name,
       email,
       password,
-      assigned_stores,
-      userType: "inspector",
+      role: "inspector", // Set role for clarity
     });
-
-    if (assigned_stores && assigned_stores.length > 0) {
-      for (const storeId of assigned_stores) {
-        await storeService.addUserToStore(storeId, inspector._id);
-      }
-    }
 
     res.status(201).json({
       success: true,
