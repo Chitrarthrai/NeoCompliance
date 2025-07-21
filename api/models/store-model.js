@@ -8,12 +8,20 @@ const storeSchema = new Schema(
       required: true,
       trim: true,
     },
-    assigned_users: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    assigned_users: {
+      managers: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+      associates: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+    },
   },
   {
     timestamps: true,

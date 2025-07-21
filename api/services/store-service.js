@@ -4,7 +4,7 @@ const storeService = {
   async addUserToStore(storeId, userId) {
     return await Store.findByIdAndUpdate(
       storeId,
-      { $addToSet: { assigned_users: userId } },
+      { $addToSet: { "assigned_users.associates": userId } },
       { new: true }
     );
   },

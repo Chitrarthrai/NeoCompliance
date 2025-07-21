@@ -241,7 +241,11 @@ async function createAssociate(req, res, next) {
       );
     }
 
-    const { name, email, password, assigned_stores } = req.body;
+    // Fetch the manager's full user document to get assigned_stores
+    const managerDoc = await userService.findUser({ _id: manager._id });
+    const assigned_stores = managerDoc.assigned_stores || [];
+
+    const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
       return next(
@@ -264,6 +268,7 @@ async function createAssociate(req, res, next) {
       return next(ErrorHandler.badRequest("Email already exists."));
     }
 
+    // Use the manager's assigned_stores for the associate
     const associate = await userService.createUser({
       name,
       email,
@@ -272,7 +277,7 @@ async function createAssociate(req, res, next) {
       assigned_stores,
     });
 
-    if (assigned_stores && assigned_stores.length > 0) {
+    if (assigned_stores.length > 0) {
       for (const storeId of assigned_stores) {
         await storeService.addUserToStore(storeId, associate._id);
       }

@@ -7,6 +7,7 @@ const authRoute = require('./routes/auth-route');
 const directRoute = require('./routes/direct-route');
 const associateRoute = require('./routes/associate-route');
 const managerRoute = require('./routes/manager-route');
+const inspectorRoute = require('./routes/inspector-route');
 const ErrorHandler = require('./utils/error-handler');
 const errorMiddleware = require('./middlewares/error-middleware');
 const { auth, authRole } = require('./middlewares/auth-middleware');
@@ -41,6 +42,7 @@ app.use('/api/auth', authRoute);
 app.use('/api/direct', directRoute);
 app.use('/api/associate', auth, authRole(['associate']), associateRoute);
 app.use('/api/manager', auth, authRole(['manager']), managerRoute);
+app.use('/api/inspector', auth, authRole(['inspector']), inspectorRoute);
 
 
 // Not Found Middleware

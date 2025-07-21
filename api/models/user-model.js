@@ -29,7 +29,7 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["manager", "associate"],
+      enum: ["manager", "associate", "inspector"],
       default: "associate",
     },
     assigned_stores: [
