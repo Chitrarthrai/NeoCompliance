@@ -11,4 +11,5 @@ router.post('/assign-stores', assignStoresToUser);
 router.post('/create-inspector', createInspector);
 
 
+
 module.exports = router;

@@ -27,6 +27,11 @@ const inspectorSchema = new Schema(
       required: true,
       minlength: 8,
     },
+    role: {
+      type: String,
+      enum: ["manager", "associate", "inspector"],
+      default: "inspector",
+    },
     assigned_stores: [
       {
         type: mongoose.Schema.Types.ObjectId,

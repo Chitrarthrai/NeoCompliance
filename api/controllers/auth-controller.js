@@ -204,7 +204,7 @@ async function createInspector(req, res, next) {
       name,
       email,
       password,
-      role: "inspector", // Set role for clarity
+      role: "inspector", 
     });
 
     res.status(201).json({
