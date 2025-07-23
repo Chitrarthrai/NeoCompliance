@@ -4,6 +4,7 @@ const userService = require("../services/user-service");
 const tokenService = require("../services/token-service");
 const storeService = require("../services/store-service");
 const UserDto = require("../dtos/user-dto");
+const responseFormatter = require("../utils/responseFormatter");
 
 async function login(req, res, next) {
   const { email, password } = req.body;
@@ -47,13 +48,12 @@ async function login(req, res, next) {
   console.log("Login user:", user);
   console.log("Login accessToken:", accessToken);
   console.log("Login refreshToken:", refreshToken);
-  res.json({
-    success: true,
-    message: "Login Successful",
-    user,
-    accessToken,
-    refreshToken,
-  });
+  return responseFormatter(
+    200,
+    "Login Successful",
+    { user, accessToken, refreshToken },
+    res
+  );
 }
 
 async function logout(req, res, next) {
@@ -63,7 +63,7 @@ async function logout(req, res, next) {
   res.clearCookie("refreshToken");
   res.clearCookie("accessToken");
   return response.modifiedCount === 1
-    ? res.json({ success: true, message: "Logout Successfully" })
+    ? responseFormatter(200, "Logout Successfully", null, res)
     : next(ErrorHandler.unAuthorized());
 }
 
@@ -81,9 +81,7 @@ async function refresh(req, res, next) {
   if (!token) {
     res.clearCookie("refreshToken");
     res.clearCookie("accessToken");
-    return res
-      .status(401)
-      .json({ success: false, message: "Unauthorized Access" });
+    return responseFormatter(401, "Unauthorized Access", null, res);
   }
 
   const payload = {
@@ -91,7 +89,7 @@ async function refresh(req, res, next) {
     email,
     username,
     role,
-    userType: user.userType,
+    userType: userData.userType,
   };
 
   const { accessToken, refreshToken } = tokenService.generateToken(payload);
@@ -112,13 +110,12 @@ async function refresh(req, res, next) {
   console.log("Refresh user:", user);
   console.log("Refresh accessToken:", accessToken);
   console.log("Refresh refreshToken:", refreshToken);
-  res.json({
-    success: true,
-    message: "Secure access has been granted",
-    user,
-    accessToken,
-    refreshToken,
-  });
+  return responseFormatter(
+    200,
+    "Secure access has been granted",
+    { user, accessToken, refreshToken },
+    res
+  );
 }
 
 async function createUser(req, res, next) {
@@ -165,11 +162,12 @@ async function createUser(req, res, next) {
       }
     }
 
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      user: new UserDto(user),
-    });
+    return responseFormatter(
+      201,
+      "User created successfully",
+      { user: new UserDto(user) },
+      res
+    );
   } catch (err) {
     next(err);
   }
@@ -204,14 +202,15 @@ async function createInspector(req, res, next) {
       name,
       email,
       password,
-      role: "inspector", 
+      role: "inspector",
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Inspector created successfully",
-      user: new UserDto(inspector),
-    });
+    return responseFormatter(
+      201,
+      "Inspector created successfully",
+      { user: new UserDto(inspector) },
+      res
+    );
   } catch (err) {
     next(err);
   }
@@ -269,11 +268,12 @@ async function createAssociate(req, res, next) {
       }
     }
 
-    res.status(201).json({
-      success: true,
-      message: "Associate created successfully",
-      user: new UserDto(associate),
-    });
+    return responseFormatter(
+      201,
+      "Associate created successfully",
+      { user: new UserDto(associate) },
+      res
+    );
   } catch (err) {
     next(err);
   }
