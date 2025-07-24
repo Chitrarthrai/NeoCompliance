@@ -3,6 +3,8 @@ const QuestionModel = require("../models/question-model");
 const ScoreModel = require("../models/score-model");
 const StoreModel = require("../models/store-model");
 const responseFormatter = require("../utils/responseFormatter");
+const { generateSasToken } = require("../utils/generateSasToken");
+const ImageUpload = require("../models/imageUpload-model");
 
 async function uploadQuestion(req, res, next) {
   try {
@@ -338,6 +340,97 @@ async function assignStoresToUser(req, res, next) {
   }
 }
 
+async function GenerateResponseMediaUploadUrl(req, res) {
+  try {
+    const { fileType } = req.query;
+    if (!["image", "video"].includes(fileType)) {
+      return responseFormatter(400, "Invalid file type", null, res);
+    }
+
+    const extension = fileType === "image" ? "jpeg" : "mp4";
+    const filename = `media_${Date.now()}.${extension}`;
+    const filePath = `responses/${filename}`;
+
+    const signedUrl = await generateSasToken(filePath, "w", 3600);
+
+    return responseFormatter(
+      200,
+      "Signed URL generated successfully",
+      {
+        signed_url: signedUrl,
+        file_path: filePath,
+        file_type: fileType,
+      },
+      res
+    );
+  } catch (error) {
+    console.error("Error generating signed URL:", error);
+    return responseFormatter(
+      500,
+      "An error occurred while generating signed URL",
+      error.message,
+      res
+    );
+  }
+}
+
+async function GetUserUploadedMedia(req, res) {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return responseFormatter(400, "userId is required", null, res);
+    }
+
+    const uploads = await ImageUpload.find({ userId }).lean();
+
+    if (!uploads || uploads.length === 0) {
+      return responseFormatter(200, "No uploaded media found", [], res);
+    }
+
+    const mediaWithUrls = await Promise.all(
+      uploads.map(async (upload) => {
+        const signedUrl = await generateSasToken(upload.filePath, "r", 3600);
+
+        return {
+          section_no: upload.section_no,
+          questionId: upload.questionId,
+          fileType: upload.fileType,
+          signedUrl,
+        };
+      })
+    );
+
+    return responseFormatter(200, "Uploaded media fetched", mediaWithUrls, res);
+  } catch (error) {
+    console.error("Error fetching uploaded media:", error);
+    return responseFormatter(500, "Server error", error.message, res);
+  }
+}
+
+async function dummyMediaUpload(req, res) {
+  try {
+    const { userId, section_no, questionId, fileType } = req.body;
+    if (!req.file) {
+      return responseFormatter(400, "No file uploaded", null, res);
+    }
+    if (!userId || !section_no || !questionId || !fileType) {
+      return responseFormatter(400, "Missing required fields", null, res);
+    }
+    const upload = await ImageUpload.create({
+      userId,
+      section_no,
+      questionId,
+      fileType,
+      filePath: req.file.path,
+    });
+    return responseFormatter(201, "File uploaded", upload, res);
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    return responseFormatter(500, "Server error", error.message, res);
+  }
+}
+
 module.exports = {
   uploadQuestion,
   getSectionsByUserRole,
@@ -347,4 +440,7 @@ module.exports = {
   getAssociatesScoresForManager,
   getScoreDetails,
   assignStoresToUser,
+  GenerateResponseMediaUploadUrl,
+  GetUserUploadedMedia,
+  dummyMediaUpload,
 };

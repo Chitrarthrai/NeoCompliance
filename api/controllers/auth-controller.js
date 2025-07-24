@@ -5,6 +5,7 @@ const tokenService = require("../services/token-service");
 const storeService = require("../services/store-service");
 const UserDto = require("../dtos/user-dto");
 const responseFormatter = require("../utils/responseFormatter");
+const bcrypt = require("bcrypt");
 
 async function login(req, res, next) {
   const { email, password } = req.body;
@@ -26,6 +27,11 @@ async function login(req, res, next) {
     status,
     userType,
   } = user;
+
+  const isPasswordValid = await bcrypt.compare(password, hashPassword);
+  if (!isPasswordValid) {
+    return next(ErrorHandler.badRequest("Invalid Email or Password"));
+  }
 
   const payload = {
     _id,

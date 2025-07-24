@@ -22,6 +22,19 @@ const customBodyParser = (req, res, next) => {
 // Middleware - use custom body parser instead of express.json()
 expressApp.use(customBodyParser);
 
+// Add cookie parser middleware
+expressApp.use((req, res, next) => {
+  const cookieHeader = req.headers.cookie;
+  req.cookies = {};
+  if (cookieHeader) {
+    cookieHeader.split(";").forEach((cookie) => {
+      const [name, ...rest] = cookie.trim().split("=");
+      req.cookies[name] = decodeURIComponent(rest.join("="));
+    });
+  }
+  next();
+});
+
 // Connect to MongoDB when the app starts
 let dbConnected = false;
 const initDB = async () => {
